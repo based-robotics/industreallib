@@ -29,7 +29,8 @@ import industreallib.control.scripts.control_utils as control_utils
 import industreallib.perception.scripts.detect_objects as detect_objects
 import industreallib.perception.scripts.map_workspace as map_workspace
 import industreallib.perception.scripts.perception_utils as perception_utils
-import industreallib.tasks.obs.obs_recorder as obs
+import industreallib.tasks.utils.obs_recorder as obs
+import industreallib.tasks.utils.rosbag_recorder as rosbag
 
 
 class IndustRealTaskBase:
@@ -41,6 +42,7 @@ class IndustRealTaskBase:
         task_instance_config,
         in_sequence,
         use_obs: bool = False,
+        record_rosbag: bool = False,
         obs_config: dict[str] = None,
     ):
         """Initializes the configuration, goals, and robot for the task."""
@@ -62,6 +64,9 @@ class IndustRealTaskBase:
         self._ros_rate = None
         self._ros_msg_count = 0
         self._device = "cuda"
+        self.record_rosbag = record_rosbag
+        if record_rosbag:
+            self._rosbag_recorder = rosbag.RosbagRecorder()
         self.use_obs = use_obs
         if use_obs:
             self._obs = obs.OBSRecorder(obs_config=obs_config)
@@ -253,12 +258,18 @@ class IndustRealTaskBase:
         """Goes to each goal in a list of goals. Performs actions before and after each goal."""
         if self.use_obs:
             self._obs.start_recording()
+        if self.record_rosbag:
+            self._rosbag_recorder.start_recording()
+
         for goal in self.goal_coords:
             self.do_simple_procedure(procedure=self.task_instance_config.motion.do_before, franka_arm=self.franka_arm)
             self.go_to_goal(goal=goal, franka_arm=self.franka_arm)
             self.do_simple_procedure(procedure=self.task_instance_config.motion.do_after, franka_arm=self.franka_arm)
+
         if self.use_obs:
             self._obs.stop_recording()
+        if self.record_rosbag:
+            self._rosbag_recorder.stop_recording()
 
     def go_to_goal(self, goal, franka_arm):
         """Goes to a goal."""
