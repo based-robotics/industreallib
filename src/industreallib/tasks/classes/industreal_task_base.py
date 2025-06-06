@@ -29,12 +29,20 @@ import industreallib.control.scripts.control_utils as control_utils
 import industreallib.perception.scripts.detect_objects as detect_objects
 import industreallib.perception.scripts.map_workspace as map_workspace
 import industreallib.perception.scripts.perception_utils as perception_utils
+import industreallib.tasks.obs.obs_recorder as obs
 
 
 class IndustRealTaskBase:
     """Defines base class for all tasks."""
 
-    def __init__(self, args, task_instance_config, in_sequence):
+    def __init__(
+        self,
+        args,
+        task_instance_config,
+        in_sequence,
+        use_obs: bool = False,
+        obs_config: dict[str] = None,
+    ):
         """Initializes the configuration, goals, and robot for the task."""
         self._args = args
         self.task_instance_config = task_instance_config
@@ -54,6 +62,9 @@ class IndustRealTaskBase:
         self._ros_rate = None
         self._ros_msg_count = 0
         self._device = "cuda"
+        self.use_obs = use_obs
+        if use_obs:
+            self._obs = obs.OBSRecorder(obs_config=obs_config)
 
         # For PLAI
         self._prev_targ_pos = None
@@ -88,10 +99,7 @@ class IndustRealTaskBase:
     def _get_goals_randomly(self):
         """Gets goals for the task by randomly generating them within specified bounds."""
         for _ in range(self.task_instance_config.goals.random.num_goals):
-            goal = [
-                random.uniform(bound[0], bound[1])
-                for bound in self.task_instance_config.goals.random.bounds
-            ]
+            goal = [random.uniform(bound[0], bound[1]) for bound in self.task_instance_config.goals.random.bounds]
             self.goal_coords.append(goal)
 
         if self._args.debug_mode:
@@ -161,14 +169,10 @@ class IndustRealTaskBase:
     def _get_object_coords_from_perception(self, perception_config_file_name):
         """Gets object coordinates (x, y, theta) from perception."""
         # Map workspace (saves to JSON)
-        map_workspace.main(
-            perception_config_file_name=perception_config_file_name, franka_arm=self.franka_arm
-        )
+        map_workspace.main(perception_config_file_name=perception_config_file_name, franka_arm=self.franka_arm)
 
         # Detect objects and get object coordinates (x, y, theta)
-        object_coords, object_labels = detect_objects.main(
-            perception_config_file_name=perception_config_file_name
-        )
+        object_coords, object_labels = detect_objects.main(perception_config_file_name=perception_config_file_name)
         if not object_coords:
             raise ValueError(
                 "No objects detected. Make sure checkpoint and scene are specified                 "
@@ -177,9 +181,7 @@ class IndustRealTaskBase:
 
         return object_coords, object_labels
 
-    def convert_object_coords_to_goals(
-        self, object_coords, object_labels, perception_config_file_name
-    ):
+    def convert_object_coords_to_goals(self, object_coords, object_labels, perception_config_file_name):
         """Converts object coordinates (x, y, theta) to goals (x, y, z, roll, pitch, yaw)."""
         perception_config = perception_utils.get_perception_config(
             file_name=perception_config_file_name, module_name="generate_goals"
@@ -210,11 +212,7 @@ class IndustRealTaskBase:
                     # Apply lateral goal offset for asymmetric parts (e.g., gear base)
                     if self.task_instance_config.goals.perception.goal_lateral_offsets is not None:
                         lateral_offset_local = np.expand_dims(
-                            np.asarray(
-                                self.task_instance_config.goals.perception.goal_lateral_offsets[
-                                    label
-                                ]
-                            ),
+                            np.asarray(self.task_instance_config.goals.perception.goal_lateral_offsets[label]),
                             axis=1,
                         )
                         from_local_to_global_r = np.array(
@@ -223,9 +221,7 @@ class IndustRealTaskBase:
                                 [np.sin(goal[5]), np.cos(goal[5])],
                             ]
                         )
-                        lateral_offset_global = np.squeeze(
-                            from_local_to_global_r @ lateral_offset_local
-                        )
+                        lateral_offset_global = np.squeeze(from_local_to_global_r @ lateral_offset_local)
                         goal[:2] += lateral_offset_global
 
                     # Apply one-time perception offset
@@ -255,14 +251,14 @@ class IndustRealTaskBase:
 
     def go_to_goals(self):
         """Goes to each goal in a list of goals. Performs actions before and after each goal."""
+        if self.use_obs:
+            self._obs.start_recording()
         for goal in self.goal_coords:
-            self.do_simple_procedure(
-                procedure=self.task_instance_config.motion.do_before, franka_arm=self.franka_arm
-            )
+            self.do_simple_procedure(procedure=self.task_instance_config.motion.do_before, franka_arm=self.franka_arm)
             self.go_to_goal(goal=goal, franka_arm=self.franka_arm)
-            self.do_simple_procedure(
-                procedure=self.task_instance_config.motion.do_after, franka_arm=self.franka_arm
-            )
+            self.do_simple_procedure(procedure=self.task_instance_config.motion.do_after, franka_arm=self.franka_arm)
+        if self.use_obs:
+            self._obs.stop_recording()
 
     def go_to_goal(self, goal, franka_arm):
         """Goes to a goal."""
@@ -373,8 +369,15 @@ class IndustRealTaskBase:
 
         # Load config.yaml used in training
         with open(
-            os.path.join(os.path.dirname(__file__), '..', '..', 'rl', 'checkpoints',
-            self.task_instance_config.rl.checkpoint_name, 'config.yaml'),
+            os.path.join(
+                os.path.dirname(__file__),
+                "..",
+                "..",
+                "rl",
+                "checkpoints",
+                self.task_instance_config.rl.checkpoint_name,
+                "config.yaml",
+            ),
             "r",
         ) as f:
             sim_config = yaml.safe_load(f)
@@ -409,9 +412,16 @@ class IndustRealTaskBase:
         # Restore policy from checkpoint
         policy.restore(
             fn=(
-                os.path.join(os.path.dirname(__file__), '..', '..', 'rl', 'checkpoints',
-                self.task_instance_config.rl.checkpoint_name, 'nn',
-                f"{self.task_instance_config.rl.checkpoint_name}.pth")
+                os.path.join(
+                    os.path.dirname(__file__),
+                    "..",
+                    "..",
+                    "rl",
+                    "checkpoints",
+                    self.task_instance_config.rl.checkpoint_name,
+                    "nn",
+                    f"{self.task_instance_config.rl.checkpoint_name}.pth",
+                )
             )
         )
 
@@ -450,9 +460,7 @@ class IndustRealTaskBase:
         """Gets actions from the policy. Applies action scaling factors."""
         actions = self._policy.get_action(obs=observations, is_deterministic=True)
         actions *= torch.tensor(
-            self.task_instance_config.control.mode[
-                self.task_instance_config.control.mode.type
-            ].action_scale,
+            self.task_instance_config.control.mode[self.task_instance_config.control.mode.type].action_scale,
             dtype=torch.float32,
             device=self._device,
         )
@@ -484,12 +492,8 @@ class IndustRealTaskBase:
                 pos_err = targ_pos - curr_pos
                 pos_err_clip = np.clip(
                     pos_err,
-                    a_min=-np.asarray(
-                        self.task_instance_config.control.mode.leaky_plai.pos_err_thresh
-                    ),
-                    a_max=np.asarray(
-                        self.task_instance_config.control.mode.leaky_plai.pos_err_thresh
-                    ),
+                    a_min=-np.asarray(self.task_instance_config.control.mode.leaky_plai.pos_err_thresh),
+                    a_max=np.asarray(self.task_instance_config.control.mode.leaky_plai.pos_err_thresh),
                 )
                 targ_pos = curr_pos + pos_err_clip
 
@@ -503,9 +507,7 @@ class IndustRealTaskBase:
 
         ros_msg = control_utils.compose_ros_msg(
             targ_pos=targ_pos,
-            targ_ori_quat=np.roll(
-                Rotation.from_matrix(targ_ori_mat).as_quat(), shift=1
-            ),  # (w, x, y, z)
+            targ_ori_quat=np.roll(Rotation.from_matrix(targ_ori_mat).as_quat(), shift=1),  # (w, x, y, z)
             prop_gains=self.task_instance_config.control.prop_gains,
             msg_count=self._ros_msg_count,
         )

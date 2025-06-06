@@ -1,0 +1,7 @@
+# obs_config.yaml
+
+host: "localhost"     # OBS WebSocket server host
+port: 4488            # OBS WebSocket server port
+password: ""          # OBS WebSocket password (leave blank if none)
+scene_name: ""        # Name of the OBS scene to switch to
+record_dir: ""        # Directory where recordings will be stored
