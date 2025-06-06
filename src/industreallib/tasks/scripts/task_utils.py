@@ -40,13 +40,13 @@ def get_task_instance_config(task_instance_config_name, task_instance_config_sub
 
 def get_obs_config(obs_config_name="obs_config.yaml", obs_config_subdir=""):
     """Gets an OBS configuration from a YAML file."""
-    if obs_config_subdir is not None:
+    if obs_config_subdir:
         obs_config_path = os.path.join(
             obs_config_subdir,
             f"{obs_config_name}",
         )
     else:
-        obs_config_path = os.path.join(os.path.dirname(__file__), "..", "obs", f"{obs_config_name}")
+        obs_config_path = os.path.join(os.path.dirname(__file__), "..", "utils", f"{obs_config_name}")
 
     if os.path.exists(obs_config_path):
         obs_config = OmegaConf.load(obs_config_path)
@@ -56,7 +56,7 @@ def get_obs_config(obs_config_name="obs_config.yaml", obs_config_subdir=""):
     return obs_config
 
 
-def get_task_instance(args, task_instance_config, in_sequence):
+def get_task_instance(args, task_instance_config, in_sequence, **kwargs):
     """Gets an instance of a task with the specified configuration."""
     # Get name of corresponding class from YAML file
     task_class_name = task_instance_config["task"]["class"]
@@ -69,6 +69,6 @@ def get_task_instance(args, task_instance_config, in_sequence):
     task_class = locate(f"industreallib.tasks.classes.{task_module_name}.{task_class_name}")
 
     # Instantiate class
-    task_instance = task_class(args=args, task_instance_config=task_instance_config, in_sequence=in_sequence)
+    task_instance = task_class(args=args, task_instance_config=task_instance_config, in_sequence=in_sequence, **kwargs)
 
     return task_instance

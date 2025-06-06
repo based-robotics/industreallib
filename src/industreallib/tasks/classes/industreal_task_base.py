@@ -64,10 +64,10 @@ class IndustRealTaskBase:
         self._ros_rate = None
         self._ros_msg_count = 0
         self._device = "cuda"
-        self.record_rosbag = record_rosbag
+        self.record_rosbag = True
         if record_rosbag:
             self._rosbag_recorder = rosbag.RosbagRecorder()
-        self.use_obs = use_obs
+        self.use_obs = True
         if use_obs:
             self._obs = obs.OBSRecorder(obs_config=obs_config)
 
@@ -256,20 +256,25 @@ class IndustRealTaskBase:
 
     def go_to_goals(self):
         """Goes to each goal in a list of goals. Performs actions before and after each goal."""
+        print("\nGoing to goals...")
         if self.use_obs:
+            print("\nStarting OBS recording...")
             self._obs.start_recording()
         if self.record_rosbag:
+            print("\nStarting rosbag recording...")
             self._rosbag_recorder.start_recording()
-
-        for goal in self.goal_coords:
-            self.do_simple_procedure(procedure=self.task_instance_config.motion.do_before, franka_arm=self.franka_arm)
-            self.go_to_goal(goal=goal, franka_arm=self.franka_arm)
-            self.do_simple_procedure(procedure=self.task_instance_config.motion.do_after, franka_arm=self.franka_arm)
-
-        if self.use_obs:
-            self._obs.stop_recording()
-        if self.record_rosbag:
-            self._rosbag_recorder.stop_recording()
+        try:
+            for goal in self.goal_coords:
+                self.do_simple_procedure(procedure=self.task_instance_config.motion.do_before, franka_arm=self.franka_arm)
+                self.go_to_goal(goal=goal, franka_arm=self.franka_arm)
+                self.do_simple_procedure(procedure=self.task_instance_config.motion.do_after, franka_arm=self.franka_arm)
+        except KeyboardInterrupt:
+            print("\nKeyboardInterrupt detected. Stopping task execution.")
+        finally:
+            if self.use_obs:
+                self._obs.stop_recording()
+            if self.record_rosbag:
+                self._rosbag_recorder.stop_recording()
 
     def go_to_goal(self, goal, franka_arm):
         """Goes to a goal."""

@@ -21,12 +21,14 @@ class OBSRecorder:
         self.password = obs_config["password"]
         self.ws = obsws(self.host, self.port, self.password, authreconnect=1)
         self.ws.connect()
-        self.ws.call(requests.SetCurrentProgramScene(sceneName=self.scene_name))
+        # self.ws.call(requests.SetCurrentProgramScene(sceneName=self.scene_name))
 
         self.obs_init_dir = self.ws.call(requests.GetRecordDirectory()).datain["recordDirectory"]
         self.record_dir = obs_config["record_dir"]
+        print("Record directory set to:", self.obs_init_dir)
         if self.record_dir:
             self.ws.call(requests.SetRecordDirectory(recordDirectory=self.record_dir))
+        print("OBSRecorder initialized with scene")
 
     def start_recording(self):
         """
@@ -34,6 +36,7 @@ class OBSRecorder:
         on the given scene.
         """
         self.ws.call(requests.StartRecord())
+        print(f"Started recording on scene: {self.scene_name}")
 
     def stop_recording(self):
         """
@@ -43,6 +46,7 @@ class OBSRecorder:
             ws (obsws): The OBS WebSocket client returned by start_recording().
         """
         self.ws.call(requests.StopRecord())
+        print("Stopped recording.")
 
     def destroy(self):
         """

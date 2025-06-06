@@ -20,10 +20,10 @@ from industreallib.tasks.classes.industreal_task_base import IndustRealTaskBase
 class IndustRealTaskInsert(IndustRealTaskBase):
     """Defines class for Insert task."""
 
-    def __init__(self, args, task_instance_config, in_sequence):
+    def __init__(self, args, task_instance_config, in_sequence, **kwargs):
         """Initializes the superclass."""
         super().__init__(
-            args=args, task_instance_config=task_instance_config, in_sequence=in_sequence
+            args=args, task_instance_config=task_instance_config, in_sequence=in_sequence, **kwargs
         )
 
     def _get_observations(self, goal_pos, goal_ori_mat, franka_arm):

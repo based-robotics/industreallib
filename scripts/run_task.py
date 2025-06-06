@@ -39,9 +39,9 @@ def get_args():
     parser.add_argument(
         "-r",
         "--record",
-        type=bool,
+        # type=bool,
         required=False,
-        action="store_false",
+        action="store_true",
         help="If True, will enable OBS and rosbag recording.",
     )
 
@@ -63,7 +63,7 @@ if __name__ == "__main__":
         task_instance_config=task_instance_config,
         in_sequence=False,
         use_obs=args.record,
-        use_rosbag=args.record,
+        record_rosbag=args.record,
         obs_config=obs_config,
     )
 
