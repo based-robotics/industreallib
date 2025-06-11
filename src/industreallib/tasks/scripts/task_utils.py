@@ -18,28 +18,45 @@ from omegaconf import OmegaConf
 def get_task_instance_config(task_instance_config_name, task_instance_config_subdir):
     """Gets a task instance configuration from a YAML file."""
     if task_instance_config_subdir is not None:
-        task_instance_config_path = (
-            os.path.join(os.path.dirname(__file__), '..', 'instance_configs',
-            task_instance_config_subdir, f"{task_instance_config_name}.yaml")
+        task_instance_config_path = os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            "instance_configs",
+            task_instance_config_subdir,
+            f"{task_instance_config_name}.yaml",
         )
     else:
-        task_instance_config_path = (
-            os.path.join(os.path.dirname(__file__), '..', 'instance_configs',
-            f"{task_instance_config_name}.yaml")
+        task_instance_config_path = os.path.join(
+            os.path.dirname(__file__), "..", "instance_configs", f"{task_instance_config_name}.yaml"
         )
 
     if os.path.exists(task_instance_config_path):
         task_instance_config = OmegaConf.load(task_instance_config_path)
     else:
-        raise ValueError(
-            f"Task instance configuration file with path {task_instance_config_path} does not"
-            " exist."
-        )
+        raise ValueError(f"Task instance configuration file with path {task_instance_config_path} does not exist.")
 
     return task_instance_config
 
 
-def get_task_instance(args, task_instance_config, in_sequence):
+def get_obs_config(obs_config_name="obs_config.yaml", obs_config_subdir=""):
+    """Gets an OBS configuration from a YAML file."""
+    if obs_config_subdir:
+        obs_config_path = os.path.join(
+            obs_config_subdir,
+            f"{obs_config_name}",
+        )
+    else:
+        obs_config_path = os.path.join(os.path.dirname(__file__), "..", "utils", f"{obs_config_name}")
+
+    if os.path.exists(obs_config_path):
+        obs_config = OmegaConf.load(obs_config_path)
+    else:
+        raise ValueError(f"OBS configuration file with path {obs_config_path} does not exist.")
+
+    return obs_config
+
+
+def get_task_instance(args, task_instance_config, in_sequence, **kwargs):
     """Gets an instance of a task with the specified configuration."""
     # Get name of corresponding class from YAML file
     task_class_name = task_instance_config["task"]["class"]
@@ -52,8 +69,6 @@ def get_task_instance(args, task_instance_config, in_sequence):
     task_class = locate(f"industreallib.tasks.classes.{task_module_name}.{task_class_name}")
 
     # Instantiate class
-    task_instance = task_class(
-        args=args, task_instance_config=task_instance_config, in_sequence=in_sequence
-    )
+    task_instance = task_class(args=args, task_instance_config=task_instance_config, in_sequence=in_sequence, **kwargs)
 
     return task_instance

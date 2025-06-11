@@ -36,6 +36,14 @@ def get_args():
         required=False,
         help="Enable output for debugging",
     )
+    parser.add_argument(
+        "-r",
+        "--record",
+        # type=bool,
+        required=False,
+        action="store_true",
+        help="If True, will enable OBS and rosbag recording.",
+    )
 
     args = parser.parse_args()
 
@@ -49,8 +57,14 @@ if __name__ == "__main__":
     task_instance_config = task_utils.get_task_instance_config(
         task_instance_config_name=args.task_instance_config_name, task_instance_config_subdir=None
     )
+    obs_config = task_utils.get_obs_config()
     task_instance = task_utils.get_task_instance(
-        args=args, task_instance_config=task_instance_config, in_sequence=False
+        args=args,
+        task_instance_config=task_instance_config,
+        in_sequence=False,
+        use_obs=args.record,
+        record_rosbag=args.record,
+        obs_config=obs_config,
     )
 
     task_instance.go_to_goals()
