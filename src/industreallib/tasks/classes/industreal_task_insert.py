@@ -43,6 +43,18 @@ class IndustRealTaskInsert(IndustRealTaskBase):
         curr_pos = curr_state["pose"].translation
         curr_ori_mat = curr_state["pose"].rotation
 
+        # force wrench estimated by the robot
+        jts_wrench = curr_state["ee_force_torque"]
+        # force wrench estimated by the specialized force-torque sensor
+        ft_wrench = franka_arm.get_ft_wrench(curr_joint_angles)
+
+        force_wrench = None
+        # TODO: here we should use only force if the policy requires
+        if self.task_instance_config.rl.force_source == "force_sensor":
+            force_wrench = ft_wrench
+        elif self.task_instance_config.rl.force_source == "robot_estimate":
+            force_wrench = jts_wrench
+
         # NOTE: For IndustReal insertion policies, default goal z-position was 3 mm lower
         goal_pos_offset = goal_pos.copy()
         goal_pos_offset[2] -= 0.003
@@ -56,21 +68,26 @@ class IndustRealTaskInsert(IndustRealTaskBase):
             goal_ori_euler[1] = 0.0
             goal_ori_mat_offset = Rotation.from_euler("xyz", goal_ori_euler).as_matrix()
 
-        observations = (
-            torch.from_numpy(
-                np.hstack(
-                    [
-                        curr_joint_angles,
-                        curr_pos,
-                        Rotation.from_matrix(curr_ori_mat).as_quat(),  # (x, y, z, w)
-                        goal_pos_offset,
-                        Rotation.from_matrix(goal_ori_mat_offset).as_quat(),
-                        goal_pos_offset - curr_pos,
-                    ]
-                )  # (x, y, z, w)
+        np_obs = np.hstack(
+            [
+                curr_joint_angles,
+                curr_pos,
+                Rotation.from_matrix(curr_ori_mat).as_quat(),  # (x, y, z, w)
+                goal_pos_offset,
+                Rotation.from_matrix(goal_ori_mat_offset).as_quat(),
+                goal_pos_offset - curr_pos,
+            ]
+        )  # (x, y, z, w)
+
+        # Add the force wrench to the observations if required
+        if force_wrench is not None:
+            np_obs = np.hstack(
+                [
+                    np_obs,
+                    force_wrench,
+                ]
             )
-            .to(torch.float32)
-            .to(self._device)
-        )
+
+        observations = torch.from_numpy(np_obs).to(torch.float32).to(self._device)
 
         return observations, curr_state
