@@ -52,7 +52,7 @@ class IndustRealTaskInsert(IndustRealTaskBase):
         # TODO: here we should use only force if the policy requires
         if self.task_instance_config.rl.force_source == "force_sensor":
             force_wrench = ft_wrench
-        elif self.task_instance_config.rl.force_source == "robot_estimate":
+        elif self.task_instance_config.rl.force_source == "joint_torques":
             force_wrench = jts_wrench
 
         # NOTE: For IndustReal insertion policies, default goal z-position was 3 mm lower
@@ -81,10 +81,20 @@ class IndustRealTaskInsert(IndustRealTaskBase):
 
         # Add the force wrench to the observations if required
         if force_wrench is not None:
+            norm = np.linalg.norm(force_wrench[:3])
+            if norm > 0:
+                # Normalize the force vector
+                force_dir = force_wrench[:3] / norm
+            else:
+                # If the force vector is zero, we still want to keep the direction
+                # for consistency in observation shape.
+                force_dir = np.array([0.0, 0.0, 0.0])
+
             np_obs = np.hstack(
                 [
                     np_obs,
-                    force_wrench,
+                    force_dir,  # Force direction (x, y, z)
+                    norm,  # Force magnitude
                 ]
             )
 

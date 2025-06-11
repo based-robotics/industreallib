@@ -25,9 +25,10 @@ motion:
   do_after: ['open_gripper', 'go_upward', 'go_home']
 
 rl:
-  checkpoint_name: industreal_policy_insert_pegs
+  # checkpoint_name: industreal_policy_insert_pegs
+  checkpoint_name: based_insert_baseline # options: based_insert_rnn, based_insert_baseline
   policy_eval_freq: 60.0
-  pos_err_thresh: 0.001  # position threshold below which to terminate early
+  pos_err_thresh: 0.01  # position threshold below which to terminate early
   ori_err_rad_thresh: 0.0873  # orientation threshold below which to terminate early
   observation_noise_pos: [0.002, 0.002, 0.0]  # half-amplitude
   override_obs_goal_roll_angle: True  # override observed goal roll angle to 0.0 (instead of pi)
@@ -35,7 +36,7 @@ rl:
   force_source: None # options: None, force_sensor, joint_torques
 
 control:
-  prop_gains: [1000, 1000, 100, 50, 50, 50]
+  prop_gains: [1200, 1000, 100, 50, 50, 50]
   # NOTE: deriv_gains computed automatically as 2 * sqrt(prop_gains)
   mode:
     type: leaky_plai  # options: nominal, plai, leaky_plai
