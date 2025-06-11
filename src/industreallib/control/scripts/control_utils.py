@@ -105,7 +105,7 @@ def go_home(franka_arm, duration):
     print("\nGoing to home configuration...")
     go_to_joint_angles(
         franka_arm=franka_arm,
-        joint_angles=[0.0, -1.76076077e-01, 0.0, -1.86691416e00, 0.0, 1.69344379e00, np.pi / 4],
+        joint_angles=[0.0, -1.76076077e-01, 0.0, -1.86691416e00, 0.0, 1.69344379e00, -np.pi / 2],
         duration=duration,
     )
     print("Reached home configuration.")
